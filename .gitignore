@@ -3,4 +3,4 @@ Mentat
 Mentat.new
 Mentat.bak
 .DS_Store
-install.sh
+install-prebuilt.sh

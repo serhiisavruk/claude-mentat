@@ -1,34 +1,36 @@
 # Development
 
+The source code is the core of the project. Everything else is built from it.
+
 ## Files
 
 | File | Purpose |
 |---|---|
 | `Mentat.swift` | The whole app: usage estimate, menu bar, settings form, log file |
 | `config.json` | Default settings and price table |
-| `build-installer.py` | Compiles `Mentat.swift` and writes `install.sh` (needs Xcode on the build Mac only) |
-| `install.sh` | Generated installer. Not in git. GitHub Actions builds it and attaches it to each release |
+| `install.sh` | The installer. It builds `Mentat.swift` with `swiftc` and installs the app |
+| `build-installer.py` | Makes `install-prebuilt.sh` from `install.sh` and a compiled binary |
+| `install-prebuilt.sh` | Generated. Not in git. CI attaches it to each release |
 | `usage.py` | Old Python version of the estimate. Kept as a reference. Not installed |
 | `.github/workflows/build.yml` | CI: build, test and release |
 
-## How the installer works
-
-`build-installer.py` compiles `Mentat.swift` for `arm64-apple-macos12`. It compresses the binary with gzip and writes it as base64 text into `install.sh`, together with the default `config.json`. The script decodes the binary on the user's Mac. A file that a script writes has no quarantine flag, so Gatekeeper does not block it. The binary has an ad-hoc signature only. It is not notarized.
-
-The app links only system frameworks and the Swift runtime that is part of macOS. The user needs no Xcode and no Python.
-
-## Build on your Mac
+## Build and run from source
 
 ```
-python3 build-installer.py
-bash install.sh
+bash install.sh            # build, install and start
+MENTAT_NO_LAUNCH=1 bash install.sh   # build and install, do not start
+~/.config/mentat/Mentat --print      # check that it runs
 ```
 
-`MENTAT_NO_LAUNCH=1 bash install.sh` installs the files and does not start the app.
+You need the Xcode Command Line Tools. To compile only, without the installer:
+
+```
+swiftc -O Mentat.swift -o /tmp/Mentat && /tmp/Mentat --print
+```
 
 ## Debug
 
-- `~/.config/mentat/Mentat --print` prints the usage text and exits. It does not write to the log.
+- `Mentat --print` prints the usage text and exits. It does not write to the log.
 - The first line of the output is the menu bar title. Colour spans use the control characters RS (`0x1e`), US (`0x1f`) and GS (`0x1d`). Use `cat -v` to see them.
 - Log: `~/Library/Logs/Mentat/mentat.log`.
 
@@ -38,9 +40,21 @@ bash install.sh
 - Cost = input, output and cache-read tokens at the model price, plus cache-write tokens at the input price times the 5-minute or 1-hour multiplier.
 - The `5h`, `today` and `7d` windows are counted from now and from local midnight. The `month` window starts at the first day of the month in UTC.
 
+## The prebuilt installer
+
+`build-installer.py` compiles `Mentat.swift` for `arm64-apple-macos12`. It compresses the binary with gzip and writes it as base64 text into a copy of `install.sh`. It also embeds the default `config.json`.
+
+`install.sh` has blocks between `# >>> name` and `# <<< name` markers. The names are `checks`, `version`, `config` and `binary`. The generator replaces each block. **Keep the markers when you edit `install.sh`.** The generator stops with an error if a marker is missing.
+
+A file that a script writes has no quarantine flag, so Gatekeeper does not block it. The binary has an ad-hoc signature only. It is not notarized.
+
 ## CI and release
 
-Every push to `main` and every pull request builds the installer on an Apple Silicon runner (`macos-latest`). The job then runs an install, checks the app (`--print`, minimum macOS 12, arm64) and runs an uninstall. The installer is saved as the build artifact `install.sh`.
+Every push to `main` and every pull request runs on an Apple Silicon runner (`macos-15`):
+
+1. Install from source, check the app (`--print`), uninstall.
+2. Build the prebuilt installer, install it, check the app, check that it targets macOS 12 and arm64, uninstall.
+3. Save `install-prebuilt.sh` as a build artifact.
 
 To make a release:
 
@@ -52,7 +66,7 @@ git tag v2.0.1
 git push origin v2.0.1
 ```
 
-3. The workflow builds and tests `install.sh`. It then creates a GitHub release and attaches the file. The workflow fails if the tag and `appVersion` differ.
+3. The workflow tests the build and creates a GitHub release with `install-prebuilt.sh` attached. It fails if the tag and `appVersion` differ.
 
 ## Changes to remember
 

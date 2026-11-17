@@ -22,24 +22,33 @@ jobs:
           V=$(sed -n 's/^let appVersion = "\(.*\)"/\1/p' Mentat.swift)
           [ "v$V" = "$GITHUB_REF_NAME" ] || { echo "Tag $GITHUB_REF_NAME does not match appVersion $V"; exit 1; }
 
-      - name: Build installer
-        run: python3 build-installer.py
-
-      - name: Test installer
+      - name: Test install from source
         run: |
           bash -n install.sh
           MENTAT_NO_LAUNCH=1 bash install.sh
           out=$(~/.config/mentat/Mentat --print)  # fails step if Mentat exits non-zero
           printf '%s\n' "$out" | head -1 | grep -q '\$'
+          bash install.sh uninstall
+          test ! -d ~/.config/mentat
+
+      - name: Build prebuilt installer
+        run: python3 build-installer.py
+
+      - name: Test prebuilt installer
+        run: |
+          bash -n install-prebuilt.sh
+          MENTAT_NO_LAUNCH=1 bash install-prebuilt.sh
+          out=$(~/.config/mentat/Mentat --print)  # fails step if Mentat exits non-zero
+          printf '%s\n' "$out" | head -1 | grep -q '\$'
           vtool -show-build ~/.config/mentat/Mentat | grep -q 'minos 12.0'
           lipo -archs ~/.config/mentat/Mentat | grep -qx arm64
-          bash install.sh uninstall
+          bash install-prebuilt.sh uninstall
           test ! -d ~/.config/mentat
 
       - uses: actions/upload-artifact@v4
         with:
-          name: install.sh
-          path: install.sh
+          name: install-prebuilt.sh
+          path: install-prebuilt.sh
           if-no-files-found: error
 
   release:
@@ -51,8 +60,8 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: install.sh
+          name: install-prebuilt.sh
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" install.sh --repo "$GITHUB_REPOSITORY" --title "Mentat ${GITHUB_REF_NAME#v}" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" install-prebuilt.sh --repo "$GITHUB_REPOSITORY" --title "Mentat ${GITHUB_REF_NAME#v}" --generate-notes

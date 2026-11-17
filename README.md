@@ -1,23 +1,40 @@
 # Mentat
 
-Mentat is a small menu bar app for macOS. It shows your estimated Claude Code cost for today, this month, and other windows. It changes the colour of the title when your cost gets close to your budget.
+[![build](https://github.com/serhiisavruk/claude-mentat/actions/workflows/build.yml/badge.svg)](https://github.com/serhiisavruk/claude-mentat/actions/workflows/build.yml)
+[![release](https://img.shields.io/github/v/release/serhiisavruk/claude-mentat)](../../releases/latest)
+[![license](https://img.shields.io/github/license/serhiisavruk/claude-mentat)](LICENSE)
+
+**See what Claude Code costs you, right in the macOS menu bar.**
 
 ```
 $19 / $282 (47%) / $600
 ```
 
-> Unofficial tool. It is not made, supported or endorsed by Anthropic. The cost is an estimate.
+That reads as: **$19 today**, **$282 this month**, **47 %** of your **$600 monthly budget**. The numbers turn yellow, orange and then red as you get close to your budget.
+
+- Updates every 5 minutes. No window, no Dock icon.
+- Reads only local Claude Code logs. Sends no data anywhere.
+- One small Swift file. You can read every line.
+
+> Unofficial tool. It is not made, supported or endorsed by Anthropic. The cost is an estimate at API list prices.
+
+## Contents
+
+- [Install](#install)
+- [First step: set your budget](#first-step-set-your-budget)
+- [Everyday use](#everyday-use)
+- [Settings](#settings)
+- [Update and uninstall](#update-and-uninstall)
+- [FAQ](#faq)
+- [Problems](#problems)
 
 ## Install
 
-The source code is the core of the project. You build the app on your own Mac. Then you can read every line that runs.
+You need a Mac with **macOS 12 or newer** and **Claude Code** used on that Mac.
 
-You need:
-- macOS 12 or newer.
-- Xcode Command Line Tools. To install them, run `xcode-select --install`.
-- Claude Code, used on this Mac. Mentat reads the logs that Claude Code writes in `~/.claude/projects/`.
+### Option A: build from source (recommended)
 
-Then run:
+Needs the Xcode Command Line Tools. Don't have them? Run `xcode-select --install` first.
 
 ```
 git clone https://github.com/serhiisavruk/claude-mentat.git
@@ -25,163 +42,180 @@ cd claude-mentat
 bash install.sh
 ```
 
-Look at the menu bar. The title shows your cost. The app starts again each time you log in.
-
-The build is for the Mac that you use. Apple Silicon is the tested platform. Intel Macs are not tested.
-
-### Install without Xcode
-
-You can also use a prebuilt installer. It is one file that holds a compiled binary for Apple Silicon. It needs no Xcode. CI builds it from the same source and attaches it to each [release](../../releases/latest).
+### Option B: prebuilt, no Xcode needed (Apple Silicon only)
 
 ```
 curl -fsSLO https://github.com/serhiisavruk/claude-mentat/releases/latest/download/install-prebuilt.sh
 bash install-prebuilt.sh
 ```
 
-Each release also has `install-prebuilt.sh.sha256`. To check the download:
+It's the same app, built from the same source by CI. Only the build step is skipped.
+
+<details>
+<summary>Verify the download (optional)</summary>
 
 ```
 curl -fsSLO https://github.com/serhiisavruk/claude-mentat/releases/latest/download/install-prebuilt.sh.sha256
 shasum -a 256 -c install-prebuilt.sh.sha256
 ```
 
-The prebuilt installer does the same as `install.sh`. The only difference is that it does not build the app.
+You should see `install-prebuilt.sh: OK`.
+</details>
 
-### What the script does
+**Done.** Look at the menu bar: your cost appears there. Mentat starts again each time you log in.
 
-- Builds `Mentat.swift` with `swiftc` into `~/.config/mentat/Mentat`.
-- Writes the default settings file `~/.config/mentat/config.json`. It keeps your own settings if you install again.
+<details>
+<summary>What the installer does</summary>
+
+- Builds `Mentat.swift` into `~/.config/mentat/Mentat` (Option B unpacks a prebuilt copy instead).
+- Writes the default settings to `~/.config/mentat/config.json`. Your own settings are kept if you install again.
 - Adds a login item: `~/Library/LaunchAgents/com.mentat.plist`.
 - Starts the app.
 
-The script does not use the network. It does not write outside these folders: `~/.config/mentat/`, `~/Library/LaunchAgents/` and `~/Library/Logs/Mentat/`.
+It does not use the network. It writes only to `~/.config/mentat/`, `~/Library/LaunchAgents/` and `~/Library/Logs/Mentat/`.
+</details>
 
-### Check the install
-
-```
-pgrep -lf Mentat
-launchctl print gui/$(id -u)/com.mentat | grep state
-tail -5 ~/Library/Logs/Mentat/mentat.log
-```
-
-The first command shows the process. The second command shows `state = running`. The third command shows a `start version` line.
-
-### Update
+<details>
+<summary>Check that it runs</summary>
 
 ```
-cd claude-mentat
-git pull
-bash install.sh
+pgrep -lf Mentat                                       # shows the process
+launchctl print gui/$(id -u)/com.mentat | grep state   # shows "state = running"
+~/.config/mentat/Mentat --print                        # prints the current numbers
 ```
+</details>
 
-Your settings stay. The script stops the old app and starts the new one.
+## First step: set your budget
 
-### Uninstall
+The default budget is **$600/month**. It's only an example.
 
-```
-bash install.sh uninstall
-```
+1. Click the title in the menu bar.
+2. Choose **Open config**.
+3. Enter your **Monthly limit ($)** and save.
 
-This stops the app. It removes `~/.config/mentat/`, the login item and the log folder `~/Library/Logs/Mentat/`.
+The title updates at once.
 
-## Use Mentat
-
-Mentat has no window and no Dock icon. You control it from the menu bar title and from Terminal.
-
-### Menu
+## Everyday use
 
 Click the title to open the menu.
 
-| Item | Key | Action |
+| Item | Key | What it does |
 |---|---|---|
-| Refresh | R | Read the logs now. Mentat does not wait for the next refresh time. |
+| Refresh | R | Read the logs now, without waiting. |
 | Open config | , | Open the settings form. |
 | Open log | L | Open the log file. |
-| Start at login | | Turn the start at login on or off. A check mark shows that it is on. |
-| Quit | Q | Close the app. |
+| Start at login | | Turn the start at login on or off. A check mark means on. |
+| Quit | Q | Close the app until your next login. |
 
-### Close, start and restart
+The menu also lists your cost by time window (5h, today, 7d, month) and by model.
+
+### Alert colours
+
+| Colour | Default level |
+|---|---|
+| Yellow | 70 % of budget |
+| Orange | 80 % |
+| Red | 90 % |
+
+- **Month budget** = your monthly limit. A month alert colours the month value and the percent.
+- **Day budget** = monthly limit ÷ working days this month (Mon–Fri). A day alert colours the today value.
+
+<details>
+<summary>Start, stop and restart from Terminal</summary>
 
 | Action | Command |
 |---|---|
-| Close | Choose **Quit**, or run `pkill -x Mentat`. The app stays closed until your next login. |
-| Start by hand | `open ~/.config/mentat/Mentat` |
+| Stop | `pkill -x Mentat` |
+| Start | `open ~/.config/mentat/Mentat` |
 | Start through the login item | `launchctl kickstart gui/$(id -u)/com.mentat` |
-| Restart | Run `pkill -x Mentat`, then start the app again. |
+| Turn off start at login | `rm ~/Library/LaunchAgents/com.mentat.plist` |
+| Stop now and unload the login item | `launchctl bootout gui/$(id -u)/com.mentat` |
+| Load the login item and start now | `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mentat.plist` |
 
-You do not need a restart after you change a setting. Save in the settings form, and the menu updates. Edit `config.json` by hand? Choose **Refresh** in the menu.
-
-To see the current numbers in Terminal, run `~/.config/mentat/Mentat --print`.
-
-### Start at login
-
-The install script turns on start at login. To turn it on or off, choose **Start at login** in the menu. A check mark means that the app starts at login. The change takes effect at your next login. It does not start or stop the running app.
-
-The menu item makes or deletes the file `~/Library/LaunchAgents/com.mentat.plist`. You can also use Terminal:
-
-| Action | Command |
-|---|---|
-| Turn off start at login (no change to the running app) | `rm ~/Library/LaunchAgents/com.mentat.plist` |
-| Stop the app now and unload the login item | `launchctl bootout gui/$(id -u)/com.mentat` |
-| Load the login item and start the app now | `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mentat.plist` |
-| Check if the login item is loaded | `launchctl print gui/$(id -u)/com.mentat` |
+A change to **Start at login** takes effect at your next login. It doesn't start or stop the running app.
+</details>
 
 ## Settings
 
-Choose **Open config** in the menu. A form opens. The settings are saved in `~/.config/mentat/config.json`.
+Choose **Open config** in the menu. Changes apply when you save. No restart is needed.
 
 | Setting | Meaning |
 |---|---|
-| Refresh (seconds) | How often Mentat reads the logs. Minimum 10. |
-| Monthly limit ($) | Your monthly budget in USD. **Change this to your own value.** The default is only an example. |
-| Title template | The text in the menu bar. Variables: `{today}` `{month}` `{limit}` `{pct}` `{5h}` `{7d}`. |
-| Show windows | Time windows in the menu: 5h, today, 7d, month. |
-| Alerts (% of budget) | Yellow, orange and red levels. Default: 70, 80, 90. |
+| Refresh (seconds) | How often Mentat reads the logs. Minimum 10. Default 300. |
+| Monthly limit ($) | Your monthly budget in USD. |
+| Title template | The text in the menu bar. Variables: `{today}` `{month}` `{limit}` `{pct}` `{5h}` `{7d}`. Put `$` in front for a dollar sign, e.g. `${today}`. |
+| Show windows | Time windows listed in the menu: 5h, today, 7d, month. |
+| Alerts (% of budget) | Yellow, orange and red levels. Leave one empty to turn it off. |
 | Cache write 5m / 1h | Price multipliers for the prompt cache. Change only if Anthropic changes its prices. |
 
-The form does not show the price table. To edit the prices, click **Open file (prices)…** in the form.
+Prices per model are not in the form. Click **Open file (prices)…** to edit them in `~/.config/mentat/config.json`. After you edit the file by hand, choose **Refresh**.
 
-### How alerts work
+<details>
+<summary>Title template examples</summary>
 
-- Month budget = monthly limit.
-- Day budget = monthly limit divided by the working days this month (Monday to Friday). Public holidays are not removed.
-- A day alert colours the **today** value. A month alert colours the **month** value and the percent.
-- Leave a level empty to turn it off.
+| Template | Menu bar shows |
+|---|---|
+| `${today} / ${month} ({pct}) / ${limit}` (default) | `$19 / $282 (47%) / $600` |
+| `${month}` | `$282` |
+| `{pct}` | `47%` |
+| `today ${today} · 5h ${5h}` | `today $19 · 5h $6` |
+</details>
 
-## Log file
+## Update and uninstall
 
-Mentat writes important events to `~/Library/Logs/Mentat/mentat.log`. This is the standard place for app logs on macOS. Choose **Open log** in the menu to open it. The Console app shows it under **Log Reports**.
+**Update** (your settings are kept):
 
-Each line has a time, a level (INFO, WARN or ERROR) and a message. Mentat writes these events:
+```
+cd claude-mentat && git pull && bash install.sh                  # Option A
+curl -fsSLO https://github.com/serhiisavruk/claude-mentat/releases/latest/download/install-prebuilt.sh && bash install-prebuilt.sh   # Option B
+```
 
-- The app starts or quits.
-- The settings file is missing or is not valid JSON. Mentat then uses default values.
-- You save the settings or change **Start at login**.
-- An alert level changes, for example `alert day: none -> orange`.
-- A model has no price in the price table. Mentat does not count its cost.
-- A refresh takes more than 5 seconds.
+**Uninstall** (removes the app, its settings, the login item and the logs):
 
-Mentat writes a repeating problem only one time. The file has a limit of 512 KB. When it is full, Mentat keeps the old file as `mentat.log.1` and starts a new file. The log has no prompts, no file contents and no secrets.
+```
+bash install.sh uninstall        # or: bash install-prebuilt.sh uninstall
+```
 
-A second file, `launchd.log`, is in the same folder. It holds the text output and the error output of the app when macOS starts it at login.
+## FAQ
 
-## Privacy and limits
+**Is this what I really pay?**
+No. Mentat estimates cost at API list prices. On a Pro or Max subscription you pay your plan price, not this amount. Use the number to see how much you use.
 
-- Mentat reads local files only. It sends no data to any server.
-- **The cost is an estimate.** Mentat uses API list prices. If you use a subscription plan, you do not pay this amount.
-- The price table is in `config.json`. Check it against the Anthropic pricing page. Prices change.
-- Mentat counts only this Mac. It does not count Claude Code use on other computers.
+**Does it send my data anywhere?**
+No. It reads local files in `~/.claude/projects/` and makes no network calls.
+
+**Does it count Claude Code on my other computers?**
+No. It counts only the Mac it runs on.
+
+**Do I need an Apple Developer account or to allow the app in Security settings?**
+No. The app is built or unpacked on your own Mac, so Gatekeeper doesn't block it. On a company-managed Mac, your IT rules may still block unsigned apps.
+
+**Intel Mac?**
+Option A may work but isn't tested. Option B is Apple Silicon only.
+
+**Are the prices up to date?**
+Check the price table in `config.json` against the Anthropic pricing page. Prices change. A new install never overwrites your own `config.json`.
 
 ## Problems
 
-| Problem | Action |
+| Problem | Fix |
 |---|---|
-| `install.sh` says that `swiftc` is not found | Run `xcode-select --install`. Wait for it to finish. Run the script again. Or use the prebuilt installer. |
+| `swiftc not found` | Run `xcode-select --install`, wait for it to finish, run the installer again. Or use Option B. |
 | The menu bar shows `error` | Click the title and read the message. Then choose **Open log**. |
-| The title shows `$0` | Claude Code has no log entries in this period, or the logs are in another folder. |
-| A model has a cost of $0 | The model has no price. Open the log and look for `no price for model(s)`. Add a price in `config.json`. |
+| The title shows `$0` | Claude Code has no log entries in this period yet. |
+| A model shows `$0` | The model has no price. Open the log and look for `no price for model(s)`. Add a price in `config.json`. |
 | No title appears | Your menu bar may be full. Close some menu bar apps. Then look at `~/Library/Logs/Mentat/launchd.log`. |
-| The app does not start at login | Check that **Start at login** has a check mark. Or run `launchctl print gui/$(id -u)/com.mentat`. If it fails, run `bash install.sh` again. |
+| It doesn't start at login | Check that **Start at login** has a check mark. If that doesn't help, run the installer again. |
+
+<details>
+<summary>About the log file</summary>
+
+Mentat writes important events to `~/Library/Logs/Mentat/mentat.log`. Open it with **Open log**, or in the Console app under **Log Reports**.
+
+It logs: start and quit, a missing or broken settings file, saved settings, alert level changes (e.g. `alert day: none -> orange`), models with no price, and refreshes slower than 5 seconds. A repeating problem is logged once. The file rotates at 512 KB to `mentat.log.1`. It holds no prompts, no file contents and no secrets.
+
+`launchd.log` in the same folder holds the app's output when macOS starts it at login.
+</details>
 
 ## Development
 

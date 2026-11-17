@@ -1,0 +1,7 @@
+# Local build output
+Mentat
+Mentat.new
+Mentat.bak
+.DS_Store
+install-prebuilt.sh
+install-prebuilt.sh.sha256

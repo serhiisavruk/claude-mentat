@@ -1,0 +1,84 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  build:
+    runs-on: macos-15 # arm64 image; pinned so the Xcode/Swift toolchain doesn't drift
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Tag matches app version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          V=$(python3 build-installer.py --version)
+          [ "v$V" = "$GITHUB_REF_NAME" ] || { echo "Tag $GITHUB_REF_NAME does not match appVersion $V"; exit 1; }
+
+      - name: Test install from source
+        run: |
+          bash -n install.sh
+          MENTAT_NO_LAUNCH=1 bash install.sh
+          out=$(~/.config/mentat/Mentat --print)  # fails step if Mentat exits non-zero
+          printf '%s\n' "$out" | head -1 | grep -q '\$'
+          bash install.sh uninstall
+          test ! -d ~/.config/mentat
+
+      - name: Build prebuilt installer
+        run: python3 build-installer.py
+
+      - name: Test prebuilt installer
+        run: |
+          bash -n install-prebuilt.sh
+          MENTAT_NO_LAUNCH=1 bash install-prebuilt.sh
+          ~/.local/bin/mentat status
+          test "$(~/.local/bin/mentat version)" = "$(python3 build-installer.py --version)"
+          ~/.local/bin/mentat uninstall
+          test ! -d ~/.config/mentat
+          test ! -e ~/.local/bin/mentat
+          cat install-prebuilt.sh | MENTAT_NO_LAUNCH=1 bash   # the README one-liner: curl ... | bash
+          out=$(~/.config/mentat/Mentat --print)  # fails step if Mentat exits non-zero
+          printf '%s\n' "$out" | head -1 | grep -q '\$'
+          vtool -show-build ~/.config/mentat/Mentat | grep -q 'minos 12.0'
+          lipo -archs ~/.config/mentat/Mentat | grep -qx arm64
+          bash install-prebuilt.sh uninstall
+          test ! -d ~/.config/mentat
+
+      - name: Checksum
+        run: shasum -a 256 install-prebuilt.sh | tee install-prebuilt.sh.sha256
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: install-prebuilt.sh
+          path: |
+            install-prebuilt.sh
+            install-prebuilt.sh.sha256
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: install-prebuilt.sh
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" install-prebuilt.sh install-prebuilt.sh.sha256 --repo "$GITHUB_REPOSITORY" --title "Mentat ${GITHUB_REF_NAME#v}" --generate-notes

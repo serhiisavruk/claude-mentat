@@ -34,7 +34,15 @@ The build is for the Mac that you use. Apple Silicon is the tested platform. Int
 You can also use a prebuilt installer. It is one file that holds a compiled binary for Apple Silicon. It needs no Xcode. CI builds it from the same source and attaches it to each [release](../../releases/latest).
 
 ```
-bash ~/Downloads/install-prebuilt.sh
+curl -fsSLO https://github.com/serhiisavruk/claude-mentat/releases/latest/download/install-prebuilt.sh
+bash install-prebuilt.sh
+```
+
+Each release also has `install-prebuilt.sh.sha256`. To check the download:
+
+```
+curl -fsSLO https://github.com/serhiisavruk/claude-mentat/releases/latest/download/install-prebuilt.sh.sha256
+shasum -a 256 -c install-prebuilt.sh.sha256
 ```
 
 The prebuilt installer does the same as `install.sh`. The only difference is that it does not build the app.
@@ -178,3 +186,7 @@ A second file, `launchd.log`, is in the same folder. It holds the text output an
 ## Development
 
 See [DEVELOPMENT.md](DEVELOPMENT.md).
+
+## License
+
+MIT. See [LICENSE](LICENSE).

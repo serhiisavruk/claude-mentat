@@ -6,6 +6,9 @@ here = os.path.dirname(os.path.abspath(__file__))
 MIN_MACOS = 12
 swift = open(os.path.join(here, "Mentat.swift")).read()
 VERSION = re.search(r'let appVersion = "([^"]+)"', swift).group(1)
+if "--version" in sys.argv:
+    print(VERSION)
+    sys.exit()
 
 with tempfile.TemporaryDirectory() as tmp:
     exe = os.path.join(tmp, "Mentat")

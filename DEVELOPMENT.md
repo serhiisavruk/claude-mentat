@@ -13,6 +13,7 @@ The source code is the core of the project. Everything else is built from it.
 | `install-prebuilt.sh` | Generated. Not in git. CI attaches it to each release |
 | `usage.py` | Old Python version of the estimate. Kept as a reference. Not installed |
 | `.github/workflows/build.yml` | CI: build, test and release |
+| `.github/dependabot.yml` | Monthly updates for the GitHub Actions versions in CI |
 
 ## Build and run from source
 
@@ -54,7 +55,7 @@ Every push to `main` and every pull request runs on an Apple Silicon runner (`ma
 
 1. Install from source, check the app (`--print`), uninstall.
 2. Build the prebuilt installer, install it, check the app, check that it targets macOS 12 and arm64, uninstall.
-3. Save `install-prebuilt.sh` as a build artifact.
+3. Write `install-prebuilt.sh.sha256` and save both files as a build artifact.
 
 To make a release:
 
@@ -66,7 +67,7 @@ git tag v2.0.1
 git push origin v2.0.1
 ```
 
-3. The workflow tests the build and creates a GitHub release with `install-prebuilt.sh` attached. It fails if the tag and `appVersion` differ.
+3. The workflow tests the build and creates a GitHub release with `install-prebuilt.sh` and `install-prebuilt.sh.sha256` attached. It fails if the tag and `appVersion` differ.
 
 ## Changes to remember
 

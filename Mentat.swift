@@ -3,7 +3,7 @@ import Cocoa
 // mentat menu bar app: estimates Claude Code cost from local logs on a timer and shows it.
 let configDir = NSString(string: "~/.config/mentat").expandingTildeInPath
 let configPath = configDir + "/config.json"
-let appVersion = "2.0.0"
+let appVersion = "2.0.1"
 
 // Log file: ~/Library/Logs/Mentat/mentat.log (standard macOS place; Console.app shows it under Log Reports).
 // One line per event: time, level, message. Rotates at 512 KB (keeps one old file). Never logs secrets.

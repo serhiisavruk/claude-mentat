@@ -551,6 +551,22 @@ if CommandLine.arguments.contains("--print") { // debug: print the usage text an
     print(usageText(), terminator: "")
     exit(0)
 }
+// One copy only: a second launch (by hand, or launchd plus a manual start) exits at once.
+let lockFD: Int32 = {
+    try? FileManager.default.createDirectory(atPath: configDir, withIntermediateDirectories: true)
+    return open(configDir + "/.lock", O_CREAT | O_RDWR, 0o644)
+}()
+if lockFD >= 0 && flock(lockFD, LOCK_EX | LOCK_NB) != 0 {
+    logEvent("INFO", "already running; this copy exits")
+    exit(0)
+}
+
+// SIGTERM (pkill, mentatctl stop) quits like the Quit menu item, so the log gets its "quit" line.
+signal(SIGTERM, SIG_IGN)
+let termSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+termSource.setEventHandler { NSApp.terminate(nil) }
+termSource.resume()
+
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 let delegate = App()

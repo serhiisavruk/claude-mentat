@@ -110,10 +110,9 @@ alias mentat=~/.config/mentat/mentatctl     # then: mentat restart
 
 | Action | Command |
 |---|---|
-| Status | `pgrep -lx Mentat` |
-| Stop | `pkill -x Mentat` |
-| Start | `launchctl kickstart gui/$(id -u)/com.mentat` |
-| Restart | `launchctl kickstart -k gui/$(id -u)/com.mentat` |
+| Status | `pgrep -lx -u $(id -u) Mentat` |
+| Stop | `pkill -x -u $(id -u) Mentat` |
+| Start | `nohup ~/.config/mentat/Mentat >/dev/null 2>&1 &` (a second copy exits by itself) |
 | Unload the login item now | `launchctl bootout gui/$(id -u)/com.mentat` |
 | Load the login item and start | `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mentat.plist` |
 </details>
@@ -134,15 +133,15 @@ That's all of it. Nothing is installed anywhere else.
 
 ## Everyday use
 
-Click the title to open the menu.
+Click the title to open the menu. The keys work while the menu is open.
 
 | Item | Key | What it does |
 |---|---|---|
-| Refresh | R | Read the logs now, without waiting. |
-| Open config | , | Open the settings form. |
-| Open log | L | Open the log file. |
+| Refresh | ⌘R | Read the logs now, without waiting. |
+| Open config | ⌘, | Open the settings form. |
+| Open log | ⌘L | Open the log file. |
 | Start at login | | Turn the start at login on or off. A check mark means on. |
-| Quit | Q | Close the app. It starts again at your next login. |
+| Quit | ⌘Q | Close the app. It starts again at your next login. |
 
 The menu also lists your cost by time window (5h, today, 7d, month) and by model.
 
@@ -223,9 +222,9 @@ Check the price table in `config.json` against the Anthropic pricing page. Price
 | Problem | Fix |
 |---|---|
 | `swiftc not found` | Run `xcode-select --install`, wait for it to finish, run the installer again. Or use the one-line install. |
-| The menu bar shows `error` | Click the title and read the message. Then choose **Open log**. |
+| The title shows `?` or stays `…` | Click the title and read the menu. Then choose **Open log**. |
 | The title shows `$0` | Claude Code has no log entries in this period yet. |
-| A model shows `$0` | The model has no price. Open the log and look for `no price for model(s)`. Add a price in `config.json`. |
+| The menu says `No price for: …` | That model has no price, so its cost is not counted. Add a price in `config.json`. |
 | No title appears | Your menu bar may be full. Close some menu bar apps. Then look at `~/Library/Logs/Mentat/launchd.log`. |
 | It doesn't start at login | Check that **Start at login** has a check mark. Run `~/.config/mentat/mentatctl status`. If that doesn't help, run the installer again. |
 

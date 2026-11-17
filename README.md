@@ -1,7 +1,7 @@
 # Mentat
 
 [![build](https://github.com/serhiisavruk/claude-mentat/actions/workflows/build.yml/badge.svg)](https://github.com/serhiisavruk/claude-mentat/actions/workflows/build.yml)
-[![release](https://img.shields.io/github/v/release/serhiisavruk/claude-mentat)](../../releases/latest)
+[![release](https://img.shields.io/github/v/release/serhiisavruk/claude-mentat)](https://github.com/serhiisavruk/claude-mentat/releases/latest)
 [![license](https://img.shields.io/github/license/serhiisavruk/claude-mentat)](LICENSE)
 
 **See what Claude Code costs you, right in the macOS menu bar.**
@@ -10,7 +10,7 @@
 $19 / $282 (47%) / $600
 ```
 
-This means: **$19 today**, **$282 this month**, which is **47 %** of your **$600 monthly budget**. The numbers turn yellow, orange, then red as you get close to your budget.
+This means: **$19 today**, **$282 this month**, which is **47%** of your **$600 monthly budget**. The numbers turn yellow, orange, then red as you get close to your budget.
 
 - Updates every 5 minutes. No window, no Dock icon.
 - Counts all your Claude Code projects on this Mac. Sends no data anywhere.
@@ -95,7 +95,7 @@ The title updates at once. To change the budget later, do the same steps.
 | Part | Meaning |
 |---|---|
 | `$19` | Cost today, since midnight (your time) |
-| `$282` | Cost this month, since the 1st at 00:00 UTC |
+| `$282` | Cost this month, since the 1st at 00:00 UTC. In Europe that is a few hours after midnight. In America it is the evening before. |
 | `(47%)` | Month cost as a percent of your monthly budget |
 | `$600` | Your monthly budget |
 
@@ -105,9 +105,9 @@ You can change what the title shows. See [Settings](#settings).
 
 | Colour | When (default) |
 |---|---|
-| Yellow | 70 % of the budget |
-| Orange | 80 % |
-| Red | 90 % |
+| Yellow | 70% of the budget |
+| Orange | 80% |
+| Red | 90% |
 
 - **Today** turns colour when today's cost reaches a level of your **day budget**. Day budget = monthly budget ÷ weekdays (Mon–Fri) this month. Example: $600 ÷ 20 days = $30 per day. Public holidays are not removed.
 - **Month** and **%** turn colour when the month cost reaches a level of your **monthly budget**.
@@ -117,8 +117,9 @@ You can change what the title shows. See [Settings](#settings).
 Click the title to open the menu. It shows:
 
 - Alert lines, if a budget level is reached.
-- Your cost for the **last 5 hours**, **today**, the **last 7 days** and **this month**, each split by model.
-- Your budget per month and per day.
+- Your cost for the **last 5 hours**, **today**, the **last 7 days** and **this month**, each split by model. You choose which of these to show in **Show windows**.
+- Your budget per month and per day, and the number of weekdays this month.
+- A reminder that the cost is an estimate for this Mac only.
 - **No price for: …** if a model has no price. See [Troubleshooting](#troubleshooting).
 
 Then these items:
@@ -159,10 +160,10 @@ mentat help         # list the commands
 curl -fsSL https://github.com/serhiisavruk/claude-mentat/releases/latest/download/install-prebuilt.sh | bash
 ```
 
-If you built from source:
+If you built from source, go to the folder you cloned and run:
 
 ```bash
-cd claude-mentat && git pull && bash install.sh
+git pull && bash install.sh
 ```
 
 An update never changes your `config.json`, so new prices in a new version do not reach your file. Add them by hand if you need them. See [Prices](#prices).
@@ -176,7 +177,7 @@ mentat uninstall
 ## FAQ
 
 **Is this what I really pay?**
-No. Mentat estimates the cost at API list prices. On a Pro or Max subscription you pay your plan price, not this amount. Use the number to see how much you use.
+Not exactly. Mentat estimates the cost at API list prices. If you pay per API token, it is close to your bill. On a Pro or Max subscription you pay your plan price, not this amount. Then use the number to see how much you use.
 
 **Does it send my data anywhere?**
 No. It reads local files in `~/.claude/projects/` and makes no network calls.
@@ -200,14 +201,14 @@ Use [build from source](#install). It may work, but it is not tested. The one-li
 
 | Problem | Fix |
 |---|---|
-| `mentat: command not found` | Run `echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc`. Or use the full path: `~/.config/mentat/Mentat status`. |
+| `mentat: command not found` | Run `echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc`. If you use bash instead of zsh, write `~/.bash_profile` instead of `~/.zshrc`. Or use the full path: `~/.config/mentat/Mentat status`. |
 | `swiftc not found` (source install) | Run `xcode-select --install`, wait for it to finish, then run the installer again. Or use the one-line install. |
 | No title in the menu bar | Run `mentat status`. If Mentat runs, your menu bar may be full: close some menu bar apps. An empty **Title template** also hides the title. |
-| The title stays `…` | Run `mentat print` to see the numbers in Terminal. Then read `~/Library/Logs/Mentat/mentat.log` and `launchd.log`. |
-| The title shows `$0 / $0 (0%) / …` | Claude Code has no use in this period yet. This is normal. |
+| The title stays `…` | Run `mentat print` to see the numbers in Terminal. During an alert the first line starts with the colour name, for example `orange$24 / …`. Then read `~/Library/Logs/Mentat/mentat.log` and `launchd.log`. |
+| The title shows `$0 / $0 (0%) / $600` | Claude Code has no use in this period yet. This is normal. |
 | The title is only `$0` | The settings file is missing or broken, so Mentat uses default settings. Open the log and look for `config file`. To get a new default file, delete `~/.config/mentat/config.json` and run the install command again. |
 | The menu shows `No price for: …` | That model has no price, so its cost is not counted. Add a price in `config.json`. See [Prices](#prices). |
-| It doesn't start at login | Click the title and turn on **Start at login**. `mentat status` then shows `Start at login: on`. |
+| It doesn't start at login | Click the title and turn on **Start at login**. `mentat status` then shows `Start at login: on`. If it is already on, open **System Settings → General → Login Items** and allow Mentat under **Allow in the Background**. |
 
 ## Reference
 
@@ -236,7 +237,7 @@ Variables: `{today}` `{month}` `{limit}` `{pct}` `{5h}` `{7d}`. Put `$` in front
 | `{pct}` | `47%` |
 | `today ${today} · 5h ${5h}` | `today $19 · 5h $6` |
 
-If an alert is on but the template has no coloured value (`{today}`, `{month}` or `{pct}`), the whole title turns colour.
+If the value that reached a level is not in the template, the whole title turns colour. Example: a day alert with the template `${month}`.
 </details>
 
 ### Prices
@@ -266,7 +267,7 @@ The folder `~/.config/mentat/` also holds `VERSION` and `.lock`. The lock makes 
 | Status | `pgrep -lx -u $(id -u) Mentat` |
 | Stop | `pkill -x -u $(id -u) Mentat` |
 | Start | `nohup ~/.config/mentat/Mentat run >/dev/null 2>&1 &` (a second copy exits by itself) |
-| Unload the login item and quit now | `launchctl bootout gui/$(id -u)/com.mentat` |
+| Unload the login item now (also quits Mentat if it started at login) | `launchctl bootout gui/$(id -u)/com.mentat` |
 | Load the login item and start now | `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mentat.plist` |
 
 Unloading does not delete the login item file, so Mentat still starts at your next login. To turn that off, use **Start at login** in the menu.
@@ -280,13 +281,13 @@ Mentat writes important events to `~/Library/Logs/Mentat/mentat.log`. Open it wi
 Each line has a time, a level (INFO, WARN or ERROR) and a message. Mentat logs:
 
 - The app starts or quits. A second copy that exits at once.
-- The settings file is missing or broken, and when it is OK again.
+- The settings file is OK, missing or broken. Logged at start and each time this changes.
 - You save the settings. You turn **Start at login** on or off, or the change fails.
 - An alert level changes, for example `alert day: none -> orange`.
 - A model has no price.
 - A refresh takes more than 5 seconds.
 
-A missing or broken settings file and a missing price are logged once, not on every refresh. The file rotates at 512 KB to `mentat.log.1`. It holds no prompts, no file contents and no secrets.
+The settings state and a missing price are logged once, not on every refresh. The file rotates at 512 KB to `mentat.log.1`. It holds no prompts, no file contents and no secrets.
 
 `launchd.log` in the same folder holds the app's own output when it starts at login or with `mentat start`.
 </details>

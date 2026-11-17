@@ -1,0 +1,57 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-14 # Apple Silicon
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag matches app version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          V=$(sed -n 's/^let appVersion = "\(.*\)"/\1/p' Mentat.swift)
+          [ "v$V" = "$GITHUB_REF_NAME" ] || { echo "Tag $GITHUB_REF_NAME does not match appVersion $V"; exit 1; }
+
+      - name: Build installer
+        run: python3 build-installer.py
+
+      - name: Test installer
+        run: |
+          bash -n install.sh
+          MENTAT_NO_LAUNCH=1 bash install.sh
+          ~/.config/mentat/Mentat --print | head -1 | grep -q '\$'
+          vtool -show-build ~/.config/mentat/Mentat | grep -q 'minos 12.0'
+          lipo -archs ~/.config/mentat/Mentat | grep -qx arm64
+          bash install.sh uninstall
+          test ! -d ~/.config/mentat
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: install.sh
+          path: install.sh
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: install.sh
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" install.sh --repo "$GITHUB_REPOSITORY" --title "Mentat ${GITHUB_REF_NAME#v}" --generate-notes

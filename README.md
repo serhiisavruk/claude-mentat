@@ -9,7 +9,7 @@ bash install.sh              # install or update
 bash install.sh uninstall    # remove
 ```
 
-`install.sh` is one self-contained file. It holds the compiled binary. No Xcode or Python is needed on the user's Mac.
+`install.sh` is one self-contained file. It holds the compiled binary. No Xcode or Python is needed on the user's Mac. Get it from the latest [Release](../../releases/latest).
 
 ## Files
 
@@ -18,14 +18,18 @@ bash install.sh uninstall    # remove
 | `Mentat.swift` | The whole app: usage estimate, menu bar, settings form, log file |
 | `config.json` | Default settings and price table |
 | `build-installer.py` | Compiles `Mentat.swift` and writes `install.sh` (needs Xcode on the build Mac only) |
-| `install.sh` | Generated installer. Do not edit by hand |
+| `install.sh` | Generated installer. Not in git. GitHub Actions builds it and attaches it to each Release |
 | `usage.py` | Old Python version of the estimate. Kept as a reference. Not installed |
 
-## Build a new installer
+## Release
 
-1. Change the version in `Mentat.swift` (`appVersion`).
-2. Run `python3 build-installer.py`.
-3. Attach the new `install.sh` where you share it.
+1. Change the version in `Mentat.swift` (`appVersion`) and commit.
+2. Tag the commit with the same number: `git tag v2.0.1 && git push origin v2.0.1`.
+3. GitHub Actions (`.github/workflows/build.yml`) builds `install.sh` on an Apple Silicon runner, tests an install and an uninstall, and creates a Release with `install.sh` attached. It fails if the tag and `appVersion` differ.
+
+Every push to `main` and every pull request also builds and tests the installer. The result is a build artifact named `install.sh`.
+
+To build on your own Mac: `python3 build-installer.py` (needs Xcode).
 
 ## Run and debug
 

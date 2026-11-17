@@ -69,11 +69,11 @@ It's the same app. The one-line installer is built from this source by CI.
 
 - Puts the app in `~/.config/mentat/Mentat`. The source install compiles it. The one-line install unpacks a prebuilt copy.
 - Writes the default settings to `~/.config/mentat/config.json`. Your own settings are kept if you install again.
-- Adds the control command `~/.config/mentat/mentatctl`.
+- Adds the `mentat` command: a link in `~/.local/bin`. It never replaces another program called `mentat`.
 - Adds a login item: `~/Library/LaunchAgents/com.mentat.plist`.
 - Starts the app.
 
-It needs no admin password. It writes only to `~/.config/mentat/`, `~/Library/LaunchAgents/` and `~/Library/Logs/Mentat/`.
+It needs no admin password. It writes only to `~/.config/mentat/`, `~/.local/bin/mentat`, `~/Library/LaunchAgents/` and `~/Library/Logs/Mentat/`.
 </details>
 
 ## First step: set your budget
@@ -88,22 +88,27 @@ The title updates at once.
 
 ## Start, stop, restart
 
-Mentat runs in the background as a normal app for your user. Control it with one command:
+Mentat runs in the background for your user. Control it with the `mentat` command:
 
 ```
-~/.config/mentat/mentatctl status     # is it running? version, login item, file locations
-~/.config/mentat/mentatctl stop       # close it
-~/.config/mentat/mentatctl start      # open it again
-~/.config/mentat/mentatctl restart    # close and open
+mentat              # status: running? version, login item, file locations
+mentat stop         # quit it
+mentat start        # start it again
+mentat restart      # stop, then start
+mentat print        # print the current numbers
+mentat uninstall    # remove everything
+mentat help         # list the commands
 ```
 
-You can also close it from the menu: click the title, choose **Quit**. It starts again at your next login. To stop that, click the title and turn off **Start at login**.
+You can also quit from the menu: click the title, choose **Quit**. It starts again at your next login. To stop that, turn off **Start at login** in the same menu.
 
-Tip: add a short name to your `~/.zshrc`:
+`mentat: command not found`? The command is in `~/.local/bin`, the same folder Claude Code uses. Add it to your PATH once:
 
 ```
-alias mentat=~/.config/mentat/mentatctl     # then: mentat restart
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
 ```
+
+Or use the full path: `~/.config/mentat/Mentat status`.
 
 <details>
 <summary>Same with plain macOS commands</summary>
@@ -112,7 +117,7 @@ alias mentat=~/.config/mentat/mentatctl     # then: mentat restart
 |---|---|
 | Status | `pgrep -lx -u $(id -u) Mentat` |
 | Stop | `pkill -x -u $(id -u) Mentat` |
-| Start | `nohup ~/.config/mentat/Mentat >/dev/null 2>&1 &` (a second copy exits by itself) |
+| Start | `nohup ~/.config/mentat/Mentat run >/dev/null 2>&1 &` (a second copy exits by itself) |
 | Unload the login item now | `launchctl bootout gui/$(id -u)/com.mentat` |
 | Load the login item and start | `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mentat.plist` |
 </details>
@@ -122,9 +127,8 @@ alias mentat=~/.config/mentat/mentatctl     # then: mentat restart
 | What | Where |
 |---|---|
 | App | `~/.config/mentat/Mentat` |
-| Control command | `~/.config/mentat/mentatctl` |
+| `mentat` command | `~/.local/bin/mentat` (a link to the app) |
 | Settings | `~/.config/mentat/config.json` |
-| Installed version | `~/.config/mentat/VERSION` |
 | Log | `~/Library/Logs/Mentat/mentat.log` |
 | Output when started at login | `~/Library/Logs/Mentat/launchd.log` |
 | Login item | `~/Library/LaunchAgents/com.mentat.plist` |
@@ -194,7 +198,7 @@ cd claude-mentat && git pull && bash install.sh      # if you built from source
 **Uninstall:** removes the app, its settings, the login item and the logs.
 
 ```
-~/.config/mentat/mentatctl uninstall
+mentat uninstall
 ```
 
 ## FAQ
@@ -226,7 +230,7 @@ Check the price table in `config.json` against the Anthropic pricing page. Price
 | The title shows `$0` | Claude Code has no log entries in this period yet. |
 | The menu says `No price for: …` | That model has no price, so its cost is not counted. Add a price in `config.json`. |
 | No title appears | Your menu bar may be full. Close some menu bar apps. Then look at `~/Library/Logs/Mentat/launchd.log`. |
-| It doesn't start at login | Check that **Start at login** has a check mark. Run `~/.config/mentat/mentatctl status`. If that doesn't help, run the installer again. |
+| It doesn't start at login | Check that **Start at login** has a check mark. Run `mentat status`. If that doesn't help, run the installer again. |
 
 <details>
 <summary>About the log file</summary>

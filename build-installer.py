@@ -45,7 +45,7 @@ script = script.replace(
 script = re.sub(r"# Blocks between.*\n", "", script)
 script = script.replace("#   bash install.sh            install or update\n#   bash install.sh uninstall  remove\n",
                         "#   curl -fsSL <release URL>/install-prebuilt.sh | bash   install or update\n"
-                        "#   ~/.config/mentat/mentatctl uninstall                  remove\n")
+                        "#   mentat uninstall                                      remove\n")
 out = os.path.join(here, "install-prebuilt.sh")
 open(out, "w").write(script)
 print("wrote install-prebuilt.sh", len(script) // 1024, "KB")

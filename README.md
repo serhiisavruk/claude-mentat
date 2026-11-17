@@ -27,9 +27,24 @@ bash install.sh uninstall    # remove
 2. Tag the commit with the same number: `git tag v2.0.1 && git push origin v2.0.1`.
 3. GitHub Actions (`.github/workflows/build.yml`) builds `install.sh` on an Apple Silicon runner, tests an install and an uninstall, and creates a Release with `install.sh` attached. It fails if the tag and `appVersion` differ.
 
-Every push to `main` and every pull request also builds and tests the installer. The result is a build artifact named `install.sh`.
+Every push to `main` and every pull request also builds and tests the installer. The result is a build artifact named `install.sh`. Download the latest one:
 
-To build on your own Mac: `python3 build-installer.py` (needs Xcode).
+```
+gh run download --name install.sh    # newest run; add a run ID to choose one
+```
+
+## Build locally
+
+Needs an Apple Silicon Mac with Xcode Command Line Tools (`xcode-select --install`) and `python3`.
+
+```
+python3 build-installer.py                       # compiles Mentat.swift, writes install.sh
+MENTAT_NO_LAUNCH=1 bash install.sh               # install without starting the app
+~/.config/mentat/Mentat --print                  # check it runs
+bash install.sh                                  # install and start it in the menu bar
+```
+
+These are the same checks CI runs, see the `Test installer` step in `.github/workflows/build.yml`.
 
 ## Run and debug
 

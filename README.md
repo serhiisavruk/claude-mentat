@@ -5,11 +5,17 @@ Menu bar app for macOS (Apple Silicon, macOS 12+). It shows your estimated Claud
 ## Install
 
 ```
+curl -fsSLO https://github.com/serhiisavruk/claude-mentat/releases/latest/download/install.sh
 bash install.sh              # install or update
 bash install.sh uninstall    # remove
 ```
 
-`install.sh` is one self-contained file. It holds the compiled binary. No Xcode or Python is needed on the user's Mac. Get it from the latest [Release](../../releases/latest).
+`install.sh` is one self-contained file. It holds the compiled binary. No Xcode or Python is needed on the user's Mac. It is also on the latest [Release](../../releases/latest) page, with `install.sh.sha256` to check the download:
+
+```
+curl -fsSLO https://github.com/serhiisavruk/claude-mentat/releases/latest/download/install.sh.sha256
+shasum -a 256 -c install.sh.sha256
+```
 
 ## Files
 
@@ -20,14 +26,15 @@ bash install.sh uninstall    # remove
 | `build-installer.py` | Compiles `Mentat.swift` and writes `install.sh` (needs Xcode on the build Mac only) |
 | `install.sh` | Generated installer. Not in git. GitHub Actions builds it and attaches it to each Release |
 | `usage.py` | Old Python version of the estimate. Kept as a reference. Not installed |
+| `LICENSE` | MIT |
 
 ## Release
 
 1. Change the version in `Mentat.swift` (`appVersion`) and commit.
 2. Tag the commit with the same number: `git tag v2.0.1 && git push origin v2.0.1`.
-3. GitHub Actions (`.github/workflows/build.yml`) builds `install.sh` on an Apple Silicon runner, tests an install and an uninstall, and creates a Release with `install.sh` attached. It fails if the tag and `appVersion` differ.
+3. GitHub Actions (`.github/workflows/build.yml`) builds `install.sh` on an Apple Silicon runner, tests an install and an uninstall, and creates a Release with `install.sh` and `install.sh.sha256` attached. It fails if the tag and `appVersion` differ.
 
-Every push to `main` and every pull request also builds and tests the installer. The result is a build artifact named `install.sh`. Download the latest one:
+Every push to `main` and every pull request also builds and tests the installer. The result is a build artifact named `install.sh` (holds `install.sh` and its checksum). Download the latest one:
 
 ```
 gh run download --name install.sh    # newest run; add a run ID to choose one
@@ -53,3 +60,7 @@ These are the same checks CI runs, see the `Test installer` step in `.github/wor
 - Log: `~/Library/Logs/Mentat/mentat.log`.
 
 The cost is an estimate at API list prices. Check the price table in `config.json` against the Anthropic pricing page.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

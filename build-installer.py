@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Build install.sh: one self-contained file with the compiled Mentat binary (gzip+base64) and the default config.
 Needs Xcode tools on THIS Mac only. End users need nothing."""
-import base64, gzip, os, re, subprocess, tempfile
+import base64, gzip, os, re, subprocess, sys, tempfile
 here = os.path.dirname(os.path.abspath(__file__))
 VERSION = re.search(r'let appVersion = "([^"]+)"', open(os.path.join(here, "Mentat.swift")).read()).group(1)
 MIN_MACOS = 12
+if "--version" in sys.argv:
+    print(VERSION)
+    sys.exit()
 
 with tempfile.TemporaryDirectory() as tmp:
     exe = os.path.join(tmp, "Mentat")

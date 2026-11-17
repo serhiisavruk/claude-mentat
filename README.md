@@ -22,6 +22,8 @@ That reads as: **$19 today**, **$282 this month**, **47 %** of your **$600 month
 
 - [Install](#install)
 - [First step: set your budget](#first-step-set-your-budget)
+- [Start, stop, restart](#start-stop-restart)
+- [Where things are](#where-things-are)
 - [Everyday use](#everyday-use)
 - [Settings](#settings)
 - [Update and uninstall](#update-and-uninstall)
@@ -30,11 +32,29 @@ That reads as: **$19 today**, **$282 this month**, **47 %** of your **$600 month
 
 ## Install
 
-You need a Mac with **macOS 12 or newer** and **Claude Code** used on that Mac.
+Needs a Mac with Apple Silicon, **macOS 12 or newer**, and **Claude Code** used on that Mac. Paste this into Terminal:
 
-### Option A: build from source (recommended)
+```
+curl -fsSL https://github.com/serhiisavruk/claude-mentat/releases/latest/download/install-prebuilt.sh | bash
+```
 
-Needs the Xcode Command Line Tools. Don't have them? Run `xcode-select --install` first.
+**Done.** Look at the menu bar: your cost appears there. Mentat starts again each time you log in.
+
+<details>
+<summary>Prefer to check the file before you run it?</summary>
+
+```
+curl -fsSLO https://github.com/serhiisavruk/claude-mentat/releases/latest/download/install-prebuilt.sh
+curl -fsSLO https://github.com/serhiisavruk/claude-mentat/releases/latest/download/install-prebuilt.sh.sha256
+shasum -a 256 -c install-prebuilt.sh.sha256     # should print: install-prebuilt.sh: OK
+less install-prebuilt.sh                         # read it
+bash install-prebuilt.sh
+```
+</details>
+
+### Or build from source
+
+Read every line that runs and compile it yourself. Needs the Xcode Command Line Tools (`xcode-select --install`). Also works on Intel Macs (not tested).
 
 ```
 git clone https://github.com/serhiisavruk/claude-mentat.git
@@ -42,47 +62,18 @@ cd claude-mentat
 bash install.sh
 ```
 
-### Option B: prebuilt, no Xcode needed (Apple Silicon only)
-
-```
-curl -fsSLO https://github.com/serhiisavruk/claude-mentat/releases/latest/download/install-prebuilt.sh
-bash install-prebuilt.sh
-```
-
-It's the same app, built from the same source by CI. Only the build step is skipped.
-
-<details>
-<summary>Verify the download (optional)</summary>
-
-```
-curl -fsSLO https://github.com/serhiisavruk/claude-mentat/releases/latest/download/install-prebuilt.sh.sha256
-shasum -a 256 -c install-prebuilt.sh.sha256
-```
-
-You should see `install-prebuilt.sh: OK`.
-</details>
-
-**Done.** Look at the menu bar: your cost appears there. Mentat starts again each time you log in.
+It's the same app. The one-line installer is built from this source by CI.
 
 <details>
 <summary>What the installer does</summary>
 
-- Builds `Mentat.swift` into `~/.config/mentat/Mentat` (Option B unpacks a prebuilt copy instead).
+- Puts the app in `~/.config/mentat/Mentat`. The source install compiles it. The one-line install unpacks a prebuilt copy.
 - Writes the default settings to `~/.config/mentat/config.json`. Your own settings are kept if you install again.
+- Adds the `mentat` command: a link in `~/.local/bin`. It never replaces another program called `mentat`.
 - Adds a login item: `~/Library/LaunchAgents/com.mentat.plist`.
 - Starts the app.
 
-It does not use the network. It writes only to `~/.config/mentat/`, `~/Library/LaunchAgents/` and `~/Library/Logs/Mentat/`.
-</details>
-
-<details>
-<summary>Check that it runs</summary>
-
-```
-pgrep -lf Mentat                                       # shows the process
-launchctl print gui/$(id -u)/com.mentat | grep state   # shows "state = running"
-~/.config/mentat/Mentat --print                        # prints the current numbers
-```
+It needs no admin password. It writes only to `~/.config/mentat/`, `~/.local/bin/mentat`, `~/Library/LaunchAgents/` and `~/Library/Logs/Mentat/`.
 </details>
 
 ## First step: set your budget
@@ -95,17 +86,66 @@ The default budget is **$600/month**. It's only an example.
 
 The title updates at once.
 
+## Start, stop, restart
+
+Mentat runs in the background for your user. Control it with the `mentat` command:
+
+```
+mentat              # status: running? version, login item, file locations
+mentat stop         # quit it
+mentat start        # start it again
+mentat restart      # stop, then start
+mentat print        # print the current numbers
+mentat uninstall    # remove everything
+mentat help         # list the commands
+```
+
+You can also quit from the menu: click the title, choose **Quit**. It starts again at your next login. To stop that, turn off **Start at login** in the same menu.
+
+`mentat: command not found`? The command is in `~/.local/bin`, the same folder Claude Code uses. Add it to your PATH once:
+
+```
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
+```
+
+Or use the full path: `~/.config/mentat/Mentat status`.
+
+<details>
+<summary>Same with plain macOS commands</summary>
+
+| Action | Command |
+|---|---|
+| Status | `pgrep -lx -u $(id -u) Mentat` |
+| Stop | `pkill -x -u $(id -u) Mentat` |
+| Start | `nohup ~/.config/mentat/Mentat run >/dev/null 2>&1 &` (a second copy exits by itself) |
+| Unload the login item now | `launchctl bootout gui/$(id -u)/com.mentat` |
+| Load the login item and start | `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mentat.plist` |
+</details>
+
+## Where things are
+
+| What | Where |
+|---|---|
+| App | `~/.config/mentat/Mentat` |
+| `mentat` command | `~/.local/bin/mentat` (a link to the app) |
+| Settings | `~/.config/mentat/config.json` |
+| Log | `~/Library/Logs/Mentat/mentat.log` |
+| Output when started at login | `~/Library/Logs/Mentat/launchd.log` |
+| Login item | `~/Library/LaunchAgents/com.mentat.plist` |
+
+That's all of it. Nothing is installed anywhere else.
+
 ## Everyday use
 
-Click the title to open the menu.
+Click the title to open the menu. The keys work while the menu is open.
 
 | Item | Key | What it does |
 |---|---|---|
-| Refresh | R | Read the logs now, without waiting. |
-| Open config | , | Open the settings form. |
-| Open log | L | Open the log file. |
+| Refresh | ⌘R | Read the logs now, without waiting. |
+| Open config | ⌘, | Open the settings form. |
+| Open log | ⌘L | Open the log file. |
 | Start at login | | Turn the start at login on or off. A check mark means on. |
-| Quit | Q | Close the app until your next login. |
+| Quit | ⌘Q | Close the app. It starts again at your next login. |
 
 The menu also lists your cost by time window (5h, today, 7d, month) and by model.
 
@@ -119,21 +159,6 @@ The menu also lists your cost by time window (5h, today, 7d, month) and by model
 
 - **Month budget** = your monthly limit. A month alert colours the month value and the percent.
 - **Day budget** = monthly limit ÷ working days this month (Mon–Fri). A day alert colours the today value.
-
-<details>
-<summary>Start, stop and restart from Terminal</summary>
-
-| Action | Command |
-|---|---|
-| Stop | `pkill -x Mentat` |
-| Start | `open ~/.config/mentat/Mentat` |
-| Start through the login item | `launchctl kickstart gui/$(id -u)/com.mentat` |
-| Turn off start at login | `rm ~/Library/LaunchAgents/com.mentat.plist` |
-| Stop now and unload the login item | `launchctl bootout gui/$(id -u)/com.mentat` |
-| Load the login item and start now | `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mentat.plist` |
-
-A change to **Start at login** takes effect at your next login. It doesn't start or stop the running app.
-</details>
 
 ## Settings
 
@@ -163,17 +188,17 @@ Prices per model are not in the form. Click **Open file (prices)…** to edit th
 
 ## Update and uninstall
 
-**Update** (your settings are kept):
+**Update:** run the install command again. Your settings are kept.
 
 ```
-cd claude-mentat && git pull && bash install.sh                  # Option A
-curl -fsSLO https://github.com/serhiisavruk/claude-mentat/releases/latest/download/install-prebuilt.sh && bash install-prebuilt.sh   # Option B
+curl -fsSL https://github.com/serhiisavruk/claude-mentat/releases/latest/download/install-prebuilt.sh | bash
+cd claude-mentat && git pull && bash install.sh      # if you built from source
 ```
 
-**Uninstall** (removes the app, its settings, the login item and the logs):
+**Uninstall:** removes the app, its settings, the login item and the logs.
 
 ```
-bash install.sh uninstall        # or: bash install-prebuilt.sh uninstall
+mentat uninstall
 ```
 
 ## FAQ
@@ -191,7 +216,7 @@ No. It counts only the Mac it runs on.
 No. The app is built or unpacked on your own Mac, so Gatekeeper doesn't block it. On a company-managed Mac, your IT rules may still block unsigned apps.
 
 **Intel Mac?**
-Option A may work but isn't tested. Option B is Apple Silicon only.
+Use [build from source](#or-build-from-source). It may work but isn't tested. The one-line install is Apple Silicon only.
 
 **Are the prices up to date?**
 Check the price table in `config.json` against the Anthropic pricing page. Prices change. A new install never overwrites your own `config.json`.
@@ -200,12 +225,12 @@ Check the price table in `config.json` against the Anthropic pricing page. Price
 
 | Problem | Fix |
 |---|---|
-| `swiftc not found` | Run `xcode-select --install`, wait for it to finish, run the installer again. Or use Option B. |
-| The menu bar shows `error` | Click the title and read the message. Then choose **Open log**. |
+| `swiftc not found` | Run `xcode-select --install`, wait for it to finish, run the installer again. Or use the one-line install. |
+| The title shows `?` or stays `…` | Click the title and read the menu. Then choose **Open log**. |
 | The title shows `$0` | Claude Code has no log entries in this period yet. |
-| A model shows `$0` | The model has no price. Open the log and look for `no price for model(s)`. Add a price in `config.json`. |
+| The menu says `No price for: …` | That model has no price, so its cost is not counted. Add a price in `config.json`. |
 | No title appears | Your menu bar may be full. Close some menu bar apps. Then look at `~/Library/Logs/Mentat/launchd.log`. |
-| It doesn't start at login | Check that **Start at login** has a check mark. If that doesn't help, run the installer again. |
+| It doesn't start at login | Check that **Start at login** has a check mark. Run `mentat status`. If that doesn't help, run the installer again. |
 
 <details>
 <summary>About the log file</summary>

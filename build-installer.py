@@ -43,6 +43,9 @@ script = script.replace(
     "# Mentat installer. Builds the app from source with swiftc and installs it for the current user.",
     f"# Mentat {VERSION} prebuilt installer (Apple Silicon, macOS {MIN_MACOS}+). Generated from install.sh. No Xcode needed.")
 script = re.sub(r"# Blocks between.*\n", "", script)
+script = script.replace("#   bash install.sh            install or update\n#   bash install.sh uninstall  remove\n",
+                        "#   curl -fsSL <release URL>/install-prebuilt.sh | bash   install or update\n"
+                        "#   mentat uninstall                                      remove\n")
 out = os.path.join(here, "install-prebuilt.sh")
 open(out, "w").write(script)
 print("wrote install-prebuilt.sh", len(script) // 1024, "KB")

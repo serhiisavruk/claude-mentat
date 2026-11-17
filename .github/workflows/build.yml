@@ -43,6 +43,12 @@ jobs:
         run: |
           bash -n install-prebuilt.sh
           MENTAT_NO_LAUNCH=1 bash install-prebuilt.sh
+          ~/.local/bin/mentat status
+          test "$(~/.local/bin/mentat version)" = "$(python3 build-installer.py --version)"
+          ~/.local/bin/mentat uninstall
+          test ! -d ~/.config/mentat
+          test ! -e ~/.local/bin/mentat
+          cat install-prebuilt.sh | MENTAT_NO_LAUNCH=1 bash   # the README one-liner: curl ... | bash
           out=$(~/.config/mentat/Mentat --print)  # fails step if Mentat exits non-zero
           printf '%s\n' "$out" | head -1 | grep -q '\$'
           vtool -show-build ~/.config/mentat/Mentat | grep -q 'minos 12.0'

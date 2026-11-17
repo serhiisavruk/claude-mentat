@@ -1,14 +1,17 @@
 import Cocoa
 
 // mentat menu bar app: estimates Claude Code cost from local logs on a timer and shows it.
-let configDir = NSString(string: "~/.config/mentat").expandingTildeInPath
+// $HOME first (launchd sets it; tests can point it elsewhere), then the account home.
+let home = ProcessInfo.processInfo.environment["HOME"].flatMap { $0.isEmpty ? nil : $0 } ?? NSHomeDirectory()
+let configDir = home + "/.config/mentat"
 let configPath = configDir + "/config.json"
-let appVersion = "2.0.0"
+let appVersion = "2.0.1"
 
 // Log file: ~/Library/Logs/Mentat/mentat.log (standard macOS place; Console.app shows it under Log Reports).
 // One line per event: time, level, message. Rotates at 512 KB (keeps one old file). Never logs secrets.
-let logDir = NSHomeDirectory() + "/Library/Logs/Mentat"
+let logDir = home + "/Library/Logs/Mentat"
 let logPath = logDir + "/mentat.log"
+let loginPlistPath = home + "/Library/LaunchAgents/com.mentat.plist"
 let logQueue = DispatchQueue(label: "mentat.log")
 var loggingEnabled = true
 
@@ -96,7 +99,7 @@ func usageText() -> String {
     let isoPlain = ISO8601DateFormatter()
     let usageMarker = Data("\"usage\"".utf8)
 
-    let root = NSString(string: "~/.claude/projects").expandingTildeInPath
+    let root = home + "/.claude/projects"
     let fm = FileManager.default
     if let en = fm.enumerator(at: URL(fileURLWithPath: root), includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles]) {
         for case let url as URL in en where url.pathExtension == "jsonl" {
@@ -257,7 +260,6 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     // Start at login: a LaunchAgent plist. macOS starts the app at the next login when the file exists.
-    var loginPlistPath: String { NSHomeDirectory() + "/Library/LaunchAgents/com.mentat.plist" }
 
     func loginEnabled() -> Bool { FileManager.default.fileExists(atPath: loginPlistPath) }
 
@@ -270,7 +272,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             } else {
                 guard let exe = Bundle.main.executablePath else { return }
                 try? fm.createDirectory(atPath: logDir, withIntermediateDirectories: true)
-                let plist: [String: Any] = ["Label": "com.mentat", "ProgramArguments": [exe], "RunAtLoad": true,
+                let plist: [String: Any] = ["Label": "com.mentat", "ProgramArguments": [exe], "RunAtLoad": true, "EnvironmentVariables": ["HOME": home],
                                             "StandardOutPath": logDir + "/launchd.log", "StandardErrorPath": logDir + "/launchd.log"]
                 let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
                 try fm.createDirectory(atPath: (loginPlistPath as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
@@ -340,7 +342,10 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let l = NSMenuItem(title: "Start at login", action: #selector(toggleLogin(_:)), keyEquivalent: ""); l.target = self
         l.state = loginEnabled() ? .on : .off
         let q = NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        [r, o, lg, l, q].forEach { menu.addItem($0) }
+        let v = NSMenuItem(title: "Mentat \(appVersion)", action: nil, keyEquivalent: ""); v.isEnabled = false
+        [r, o, lg, l].forEach { menu.addItem($0) }
+        menu.addItem(.separator())
+        [v, q].forEach { menu.addItem($0) }
         item.menu = menu
         schedule() // pick up a changed refresh_seconds
     }
@@ -546,11 +551,158 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 }
 
-if CommandLine.arguments.contains("--print") { // debug: print the usage text and exit
-    loggingEnabled = false
-    print(usageText(), terminator: "")
-    exit(0)
+// MARK: - Command line
+// mentat [status|start|stop|restart|print|uninstall|version|help]
+// No arguments in a terminal shows status. No arguments without a terminal (launchd), or "run", starts the menu bar app.
+
+let lockPath = configDir + "/.lock"
+let exePath = configDir + "/Mentat"
+let linkPath = home + "/.local/bin/mentat"
+let launchJob = "gui/\(getuid())/com.mentat"
+
+@discardableResult
+func launchctl(_ args: [String]) -> Int32 {
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+    p.arguments = args
+    p.standardOutput = FileHandle.nullDevice
+    p.standardError = FileHandle.nullDevice
+    do { try p.run() } catch { return -1 }
+    p.waitUntilExit()
+    return p.terminationStatus
 }
+
+/// The menu bar app holds an exclusive lock on .lock while it runs, and writes its PID there.
+func isRunning() -> Bool {
+    let fd = open(lockPath, O_RDONLY)
+    if fd < 0 { return false }
+    defer { close(fd) }
+    if flock(fd, LOCK_SH | LOCK_NB) == 0 { flock(fd, LOCK_UN); return false }
+    return true
+}
+
+func appPID() -> pid_t? {
+    guard isRunning(), let text = try? String(contentsOfFile: lockPath, encoding: .utf8) else { return nil }
+    return pid_t(text.trimmingCharacters(in: .whitespacesAndNewlines))
+}
+
+func waitUntil(running: Bool) -> Bool {
+    for _ in 0..<20 { if isRunning() == running { return true }; usleep(250_000) }
+    return false
+}
+
+/// Start the app outside launchd (used when there is no login item). It ignores SIGHUP, so closing the terminal does not stop it.
+func spawnApp() {
+    let fm = FileManager.default
+    try? fm.createDirectory(atPath: logDir, withIntermediateDirectories: true)
+    let out = logDir + "/launchd.log"
+    if !fm.fileExists(atPath: out) { fm.createFile(atPath: out, contents: nil) }
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: exePath)
+    p.arguments = ["run"]
+    p.standardInput = FileHandle.nullDevice
+    if let h = FileHandle(forWritingAtPath: out) { h.seekToEndOfFile(); p.standardOutput = h; p.standardError = h }
+    try? p.run()
+}
+
+func cmdStart() -> Int32 {
+    if isRunning() { print("Mentat is already running."); return 0 }
+    guard FileManager.default.isExecutableFile(atPath: exePath) else { print("Mentat is not installed in \(configDir)."); return 1 }
+    if launchctl(["print", launchJob]) == 0 {
+        launchctl(["kickstart", launchJob])
+    } else if FileManager.default.fileExists(atPath: loginPlistPath) {
+        launchctl(["bootstrap", "gui/\(getuid())", loginPlistPath])
+    }
+    if !waitUntil(running: true) { spawnApp() } // no login item, or launchd refused
+    if waitUntil(running: true) { print("Mentat started."); return 0 }
+    print("Mentat did not start. See the logs in \(logDir) (mentat.log, launchd.log).")
+    return 1
+}
+
+func cmdStop() -> Int32 {
+    if !isRunning() { print("Mentat is not running."); return 0 }
+    if let pid = appPID() { kill(pid, SIGTERM) }
+    if !waitUntil(running: false), let pid = appPID() { kill(pid, SIGKILL); _ = waitUntil(running: false) }
+    if isRunning() { print("Mentat did not stop."); return 1 }
+    print("Mentat stopped.")
+    return 0
+}
+
+func cmdStatus() -> Int32 {
+    if let pid = appPID() { print("Mentat \(appVersion): running (pid \(pid))") }
+    else { print("Mentat \(appVersion): " + (isRunning() ? "running" : "not running")) }
+    print("Start at login: " + (FileManager.default.fileExists(atPath: loginPlistPath) ? "on" : "off"))
+    print("App:        \(exePath)")
+    print("Settings:   \(configPath)")
+    print("Log:        \(logPath)")
+    print("Login item: \(loginPlistPath)")
+    return 0
+}
+
+func cmdUninstall() -> Int32 {
+    launchctl(["bootout", launchJob])
+    if isRunning() { _ = cmdStop() }
+    let fm = FileManager.default
+    try? fm.removeItem(atPath: loginPlistPath)
+    if let dest = try? fm.destinationOfSymbolicLink(atPath: linkPath), dest.hasPrefix(configDir + "/") { try? fm.removeItem(atPath: linkPath) }
+    try? fm.removeItem(atPath: configDir)
+    try? fm.removeItem(atPath: logDir)
+    print("Mentat removed.")
+    return 0
+}
+
+let helpText = """
+Usage: mentat [command]
+  status      Is it running? Version, login item and file locations (default)
+  start       Start the menu bar app
+  stop        Quit the menu bar app
+  restart     Stop, then start
+  print       Print the current numbers
+  uninstall   Remove Mentat, its settings, logs and login item
+  version     Print the version
+"""
+
+let cliArgs = Array(CommandLine.arguments.dropFirst())
+let command = cliArgs.first ?? (isatty(STDOUT_FILENO) != 0 ? "status" : "run")
+if command != "run" {
+    loggingEnabled = false
+    let code: Int32
+    switch command {
+    case "status": code = cmdStatus()
+    case "start": code = cmdStart()
+    case "stop": code = cmdStop()
+    case "restart": code = cmdStop() == 0 ? cmdStart() : 1
+    case "print", "--print": print(usageText(), terminator: ""); code = 0
+    case "uninstall": code = cmdUninstall()
+    case "version", "--version", "-v": print(appVersion); code = 0
+    case "help", "--help", "-h": print(helpText); code = 0
+    default: print("Unknown command: \(command)\n\n" + helpText); code = 2
+    }
+    exit(code)
+}
+
+// MARK: - Menu bar app
+
+// One copy only: a second launch exits at once. The lock is released when the process ends, even on a crash.
+try? FileManager.default.createDirectory(atPath: configDir, withIntermediateDirectories: true)
+let lockFD = open(lockPath, O_CREAT | O_RDWR, 0o644)
+if lockFD >= 0 {
+    if flock(lockFD, LOCK_EX | LOCK_NB) != 0 {
+        logEvent("INFO", "already running; this copy exits")
+        exit(0)
+    }
+    ftruncate(lockFD, 0)
+    let pidLine = "\(getpid())\n"
+    _ = pidLine.withCString { write(lockFD, $0, strlen($0)) }
+}
+
+// SIGTERM (mentat stop, pkill) quits like the Quit menu item, so the log gets its "quit" line.
+signal(SIGTERM, SIG_IGN)
+let termSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+termSource.setEventHandler { NSApp.terminate(nil) }
+termSource.resume()
+signal(SIGHUP, SIG_IGN) // started from a terminal by "mentat start": keep running when it closes
+
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 let delegate = App()

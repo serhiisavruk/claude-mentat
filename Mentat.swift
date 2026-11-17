@@ -5,7 +5,7 @@ import Cocoa
 let home = ProcessInfo.processInfo.environment["HOME"].flatMap { $0.isEmpty ? nil : $0 } ?? NSHomeDirectory()
 let configDir = home + "/.config/mentat"
 let configPath = configDir + "/config.json"
-let appVersion = "2.0.1"
+let appVersion = "2.0.2"
 
 // Log file: ~/Library/Logs/Mentat/mentat.log (standard macOS place; Console.app shows it under Log Reports).
 // One line per event: time, level, message. Rotates at 512 KB (keeps one old file). Never logs secrets.
@@ -272,7 +272,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             } else {
                 guard let exe = Bundle.main.executablePath else { return }
                 try? fm.createDirectory(atPath: logDir, withIntermediateDirectories: true)
-                let plist: [String: Any] = ["Label": "com.mentat", "ProgramArguments": [exe], "RunAtLoad": true, "EnvironmentVariables": ["HOME": home],
+                let plist: [String: Any] = ["Label": "com.mentat", "ProgramArguments": [exe, "run"], "RunAtLoad": true, "EnvironmentVariables": ["HOME": home],
                                             "StandardOutPath": logDir + "/launchd.log", "StandardErrorPath": logDir + "/launchd.log"]
                 let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
                 try fm.createDirectory(atPath: (loginPlistPath as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
@@ -602,18 +602,19 @@ func spawnApp() {
     p.arguments = ["run"]
     p.standardInput = FileHandle.nullDevice
     if let h = FileHandle(forWritingAtPath: out) { h.seekToEndOfFile(); p.standardOutput = h; p.standardError = h }
-    try? p.run()
+    do { try p.run() } catch { print("Could not start \(exePath): \(error.localizedDescription)") }
 }
 
 func cmdStart() -> Int32 {
     if isRunning() { print("Mentat is already running."); return 0 }
     guard FileManager.default.isExecutableFile(atPath: exePath) else { print("Mentat is not installed in \(configDir)."); return 1 }
+    var viaLaunchd = false
     if launchctl(["print", launchJob]) == 0 {
-        launchctl(["kickstart", launchJob])
+        viaLaunchd = launchctl(["kickstart", launchJob]) == 0
     } else if FileManager.default.fileExists(atPath: loginPlistPath) {
-        launchctl(["bootstrap", "gui/\(getuid())", loginPlistPath])
+        viaLaunchd = launchctl(["bootstrap", "gui/\(getuid())", loginPlistPath]) == 0
     }
-    if !waitUntil(running: true) { spawnApp() } // no login item, or launchd refused
+    if !viaLaunchd || !waitUntil(running: true) { spawnApp() } // no login item, or launchd refused
     if waitUntil(running: true) { print("Mentat started."); return 0 }
     print("Mentat did not start. See the logs in \(logDir) (mentat.log, launchd.log).")
     return 1
@@ -621,7 +622,9 @@ func cmdStart() -> Int32 {
 
 func cmdStop() -> Int32 {
     if !isRunning() { print("Mentat is not running."); return 0 }
-    if let pid = appPID() { kill(pid, SIGTERM) }
+    var pid = appPID()
+    for _ in 0..<20 where pid == nil && isRunning() { usleep(50_000); pid = appPID() }
+    if let pid = pid { kill(pid, SIGTERM) }
     if !waitUntil(running: false), let pid = appPID() { kill(pid, SIGKILL); _ = waitUntil(running: false) }
     if isRunning() { print("Mentat did not stop."); return 1 }
     print("Mentat stopped.")
@@ -629,8 +632,9 @@ func cmdStop() -> Int32 {
 }
 
 func cmdStatus() -> Int32 {
-    if let pid = appPID() { print("Mentat \(appVersion): running (pid \(pid))") }
-    else { print("Mentat \(appVersion): " + (isRunning() ? "running" : "not running")) }
+    let running = isRunning()
+    let pid = running ? appPID() : nil
+    print("Mentat \(appVersion): " + (running ? "running" + (pid.map { " (pid \($0))" } ?? "") : "not running"))
     print("Start at login: " + (FileManager.default.fileExists(atPath: loginPlistPath) ? "on" : "off"))
     print("App:        \(exePath)")
     print("Settings:   \(configPath)")
@@ -641,7 +645,10 @@ func cmdStatus() -> Int32 {
 
 func cmdUninstall() -> Int32 {
     launchctl(["bootout", launchJob])
-    if isRunning() { _ = cmdStop() }
+    if isRunning() && cmdStop() != 0 {
+        print("Nothing removed. Quit Mentat from its menu, then run: mentat uninstall")
+        return 1
+    }
     let fm = FileManager.default
     try? fm.removeItem(atPath: loginPlistPath)
     if let dest = try? fm.destinationOfSymbolicLink(atPath: linkPath), dest.hasPrefix(configDir + "/") { try? fm.removeItem(atPath: linkPath) }
@@ -660,10 +667,13 @@ Usage: mentat [command]
   print       Print the current numbers
   uninstall   Remove Mentat, its settings, logs and login item
   version     Print the version
+  help        Show this list
 """
 
 let cliArgs = Array(CommandLine.arguments.dropFirst())
-let command = cliArgs.first ?? (isatty(STDOUT_FILENO) != 0 ? "status" : "run")
+// No arguments: launchd (parent PID 1) starts the app; everyone else gets status.
+// Login items written by 2.0.2+ pass "run"; older ones pass nothing.
+let command = cliArgs.first ?? (getppid() == 1 && isatty(STDOUT_FILENO) == 0 ? "run" : "status")
 if command != "run" {
     loggingEnabled = false
     let code: Int32
@@ -687,7 +697,10 @@ if command != "run" {
 try? FileManager.default.createDirectory(atPath: configDir, withIntermediateDirectories: true)
 let lockFD = open(lockPath, O_CREAT | O_RDWR, 0o644)
 if lockFD >= 0 {
-    if flock(lockFD, LOCK_EX | LOCK_NB) != 0 {
+    // A "mentat status" check holds a shared lock for a moment, so try for 1 second before giving up.
+    var locked = false
+    for _ in 0..<20 { if flock(lockFD, LOCK_EX | LOCK_NB) == 0 { locked = true; break }; usleep(50_000) }
+    if !locked {
         logEvent("INFO", "already running; this copy exits")
         exit(0)
     }
@@ -701,7 +714,9 @@ signal(SIGTERM, SIG_IGN)
 let termSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
 termSource.setEventHandler { NSApp.terminate(nil) }
 termSource.resume()
-signal(SIGHUP, SIG_IGN) // started from a terminal by "mentat start": keep running when it closes
+// Started by "mentat start" from a terminal: leave its session, so closing the window or Ctrl-C does not touch the app.
+_ = setsid()
+signal(SIGHUP, SIG_IGN)
 
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)

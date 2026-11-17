@@ -86,4 +86,6 @@ The one binary is both the menu bar app and the `mentat` command.
 - With no arguments in a terminal, it shows `status`.
 - With no arguments and no terminal (launchd at login), or with `run`, it starts the menu bar app.
 - The app holds a lock on `~/.config/mentat/.lock` and writes its PID there. A second copy exits at once. `status`, `stop` and `start` use the same lock to see if the app runs.
-- Paths come from `$HOME`. The login item sets `HOME` so the app and the installer always use the same folders. To test in a throwaway home: `HOME=/tmp/h bash install.sh`.
+- Paths come from `$HOME`. The login item sets `HOME` so the app and the installer always use the same folders.
+- With no arguments, the app starts only when launchd is its parent (old login items). Login items from 2.0.2 pass `run`. Any other call without arguments shows `status`, so `s=$(mentat)` never hangs.
+- To test in a throwaway home: `HOME=/tmp/h MENTAT_NO_LAUNCH=1 bash install.sh`, then use only `status`, `print` and `version`. **Not isolated:** the launchd label `com.mentat` and the process name are shared with a real install. `start`, `stop`, `restart`, `uninstall` and an install without `MENTAT_NO_LAUNCH` act on the real login item and stop a real running Mentat. Run those only on a Mac without Mentat installed.

@@ -88,7 +88,6 @@ LINK="$HOME/.local/bin/mentat"
 mkdir -p "$HOME/.local/bin"
 if [ ! -e "$LINK" ] && [ ! -L "$LINK" ] || [[ "$(readlink "$LINK" 2>/dev/null)" == "$DIR/"* ]]; then
   ln -sfn "$DIR/Mentat" "$LINK"
-  MENTAT_CMD="mentat"
   case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) PATH_HINT=1 ;; esac
 else
   echo "Note: $LINK already exists and is not Mentat. Left it alone."
@@ -102,7 +101,7 @@ if [ "$LOGIN" = on ]; then
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <key>Label</key><string>$LABEL</string>
-<key>ProgramArguments</key><array><string>$DIR/Mentat</string></array>
+<key>ProgramArguments</key><array><string>$DIR/Mentat</string><string>run</string></array>
 <key>RunAtLoad</key><true/>
 <key>EnvironmentVariables</key><dict><key>HOME</key><string>$HOME</string></dict>
 <key>StandardOutPath</key><string>$LOGS/launchd.log</string>
@@ -119,7 +118,7 @@ else
   if [ "$LOGIN" = on ]; then echo "It starts at login."; else echo "Start at login stays off, as you set it."; fi
 fi
 echo "Control it with: $MENTAT_CMD status|start|stop|restart|uninstall"
-if [ -n "${PATH_HINT:-}" ]; then
+if [ -n "$PATH_HINT" ]; then
   echo "To use the short name, add ~/.local/bin to your PATH:"
   echo "  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.zshrc && source ~/.zshrc"
 fi

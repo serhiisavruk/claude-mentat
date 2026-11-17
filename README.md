@@ -130,7 +130,7 @@ Then these items:
 | Open config | ⌘, | Open the settings form. |
 | Open log | ⌘L | Open the log file. |
 | Start at login | | On or off. A check mark means on. |
-| Mentat 2.0.1 | | The installed version (greyed out). |
+| Mentat x.y.z | | The installed version (greyed out). |
 | Quit | ⌘Q | Close the app. |
 
 The shortcuts work while the menu is open.

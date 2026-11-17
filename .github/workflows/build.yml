@@ -53,7 +53,7 @@ jobs:
       - name: Checksum
         run: shasum -a 256 install-prebuilt.sh | tee install-prebuilt.sh.sha256
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: install-prebuilt.sh
           path: |

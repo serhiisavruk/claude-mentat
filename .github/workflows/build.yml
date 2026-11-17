@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-latest # Apple Silicon
+    runs-on: macos-15 # arm64 image; pinned so the Xcode/Swift toolchain doesn't drift
     steps:
       - uses: actions/checkout@v4
 
@@ -29,7 +29,8 @@ jobs:
         run: |
           bash -n install.sh
           MENTAT_NO_LAUNCH=1 bash install.sh
-          ~/.config/mentat/Mentat --print | head -1 | grep -q '\$'
+          out=$(~/.config/mentat/Mentat --print)  # fails step if Mentat exits non-zero
+          printf '%s\n' "$out" | head -1 | grep -q '\$'
           vtool -show-build ~/.config/mentat/Mentat | grep -q 'minos 12.0'
           lipo -archs ~/.config/mentat/Mentat | grep -qx arm64
           bash install.sh uninstall
